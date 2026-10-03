@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const cheminMongoDB = 'mongodb://yankayo_db_user:RZFeCFzmBkPFD4vm@ac-ibuhca5-shard-00-00.niki0jt.mongodb.net:27017,ac-ibuhca5-shard-00-01.niki0jt.mongodb.net:27017,ac-ibuhca5-shard-00-02.niki0jt.mongodb.net:27017/zeducplace?ssl=true&replicaSet=atlas-zccau7-shard-0&authSource=admin&retryWrites=true&w=majority';
+const cheminMongoDB = process.env.MONGO_URL;
 
 mongoose.connect(cheminMongoDB)
     .then(function() {
