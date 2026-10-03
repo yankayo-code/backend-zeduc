@@ -35,6 +35,8 @@ app.post('/commande', function(req, res) {
         });
 });
 
-app.listen(3000, function() {
-    console.log('Serveur démarré sur http://localhost:3000');
+const port = process.env.PORT || 3000;
+
+app.listen(port, function() {
+    console.log('Serveur démarré sur le port ' + port);
 });
