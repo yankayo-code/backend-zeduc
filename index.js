@@ -35,6 +35,12 @@ app.post('/commande', function(req, res) {
                 to: 'kayotaduyandimitri@gmail.com',
                 subject: 'Nouvelle commande - ZeducPlace',
                 text: 'Nouvelle commande de ' + req.body.client.nom + ' (' + req.body.client.telephone + ', ' + req.body.client.residence + ')'
+            })
+            .then(function(resultat) {
+                console.log('Email envoyé :', resultat);
+            })
+            .catch(function(erreurEmail) {
+                console.log('Erreur envoi email :', erreurEmail);
             });
 
             res.send('Commande bien reçue et enregistrée !');
