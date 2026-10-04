@@ -23,6 +23,23 @@ app.get('/', function(req, res) {
     res.send('Mon serveur backend fonctionne !');
 });
 
+function construireMessageCommande(commande) {
+    let message = 'Nouvelle commande de ' + commande.client.nom + ' (' + commande.client.telephone + ', ' + commande.client.residence + ')\n\n';
+    message = message + 'Détail de la commande :\n';
+
+    let total = 0;
+
+    commande.articles.forEach(function(article) {
+        const sousTotal = article.prix * article.quantite;
+        total = total + sousTotal;
+        message = message + '- ' + article.quantite + 'x ' + article.nom + ' - ' + sousTotal + ' FCFA\n';
+    });
+
+    message = message + '\nTotal : ' + total + ' FCFA';
+
+    return message;
+}
+
 app.post('/commande', function(req, res) {
     const nouvelleCommande = new Commande(req.body);
 
@@ -31,10 +48,10 @@ app.post('/commande', function(req, res) {
             console.log('Commande enregistrée dans la base :', commandeEnregistree);
 
             resend.emails.send({
-                from: 'onboarding@resend.dev',
-                to: 'yan.kayo@2031.icam.fr',
-                subject: 'Nouvelle commande - ZeducPlace',
-                text: 'Nouvelle commande de ' + req.body.client.nom + ' (' + req.body.client.telephone + ', ' + req.body.client.residence + ')'
+    from: 'onboarding@resend.dev',
+    to: 'yan.kayo@2031.icam.fr',
+    subject: 'Nouvelle commande - ZeducPlace',
+    text: construireMessageCommande(req.body)
             })
             .then(function(resultat) {
                 console.log('Email envoyé :', resultat);
