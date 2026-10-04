@@ -32,7 +32,7 @@ app.post('/commande', function(req, res) {
 
             resend.emails.send({
                 from: 'onboarding@resend.dev',
-                to: 'kayotaduyandimitri@gmail.com',
+                to: 'yan.kayo@2031.icam.fr',
                 subject: 'Nouvelle commande - ZeducPlace',
                 text: 'Nouvelle commande de ' + req.body.client.nom + ' (' + req.body.client.telephone + ', ' + req.body.client.residence + ')'
             })
