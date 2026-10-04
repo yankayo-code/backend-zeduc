@@ -3,6 +3,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const Commande = require('./commande');
 const app = express();
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 app.use(cors());
 app.use(express.json());
@@ -27,6 +29,14 @@ app.post('/commande', function(req, res) {
     nouvelleCommande.save()
         .then(function(commandeEnregistree) {
             console.log('Commande enregistrée dans la base :', commandeEnregistree);
+
+            resend.emails.send({
+                from: 'onboarding@resend.dev',
+                to: 'kayotaduyandimitri@gmail.com',
+                subject: 'Nouvelle commande - ZeducPlace',
+                text: 'Nouvelle commande de ' + req.body.client.nom + ' (' + req.body.client.telephone + ', ' + req.body.client.residence + ')'
+            });
+
             res.send('Commande bien reçue et enregistrée !');
         })
         .catch(function(erreur) {
