@@ -4,7 +4,8 @@ const schemaCommande = new mongoose.Schema({
     client: {
         nom: String,
         telephone: String,
-        residence: String
+        residence: String,
+        modeReception: String
     },
     articles: [
         {

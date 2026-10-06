@@ -24,8 +24,13 @@ app.get('/', function(req, res) {
 });
 
 function construireMessageCommande(commande) {
-    let message = 'Nouvelle commande de ' + commande.client.nom + ' (' + commande.client.telephone + ', ' + commande.client.residence + ')\n\n';
-    message = message + 'Détail de la commande :\n';
+    let message = 'Nouvelle commande de ' + commande.client.nom + ' (' + commande.client.telephone + ') - Mode : ' + commande.client.modeReception;
+
+    if (commande.client.modeReception === 'livraison') {
+    message = message + ' - Résidence : ' + commande.client.residence;
+    }
+
+    message = message + '\n\n';
 
     let total = 0;
 
