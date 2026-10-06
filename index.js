@@ -1,80 +1,123 @@
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-const Commande = require('./commande');
-const app = express();
-const { Resend } = require('resend');
-const resend = new Resend(process.env.RESEND_API_KEY);
+let panier = [];
 
-app.use(cors());
-app.use(express.json());
+fetch('https://zeduc-backend.bonto.run/plats')
+    .then(function(response) { return response.json(); })
+    .then(function(plats) {
+        const menu = document.querySelector('.menu');
 
-const cheminMongoDB = process.env.MONGO_URL;
+        const platsDisponibles = plats.filter(function(plat) {
+            return plat.disponible;
+        });
 
-mongoose.connect(cheminMongoDB)
-    .then(function() {
-        console.log('Connecté à MongoDB avec succès !');
-    })
-    .catch(function(erreur) {
-        console.log('Erreur de connexion à MongoDB :', erreur);
+        platsDisponibles.forEach(function(plat) {
+            const carte = document.createElement('article');
+            carte.className = 'card selection';
+            carte.innerHTML = '<img src="' + plat.image + '" alt="' + plat.nom + '">' +
+                '<h3>' + plat.nom + '</h3>' +
+                '<strong>' + plat.prix + ' FCFA</strong>' +
+                '<div class="zone-quantite"><input type="number" class="input-quantite" value="1" min="1"><button class="btn-ajouter">Ajouter</button></div>';
+            menu.appendChild(carte);
+        });
+
+        activerCartes();
     });
 
-app.get('/', function(req, res) {
-    res.send('Mon serveur backend fonctionne !');
-});
+function activerCartes() {
+    const cartes = document.querySelectorAll('.selection');
 
-function construireMessageCommande(commande) {
-    let message = 'Nouvelle commande de ' + commande.client.nom + ' (' + commande.client.telephone + ') - Mode : ' + commande.client.modeReception;
+    cartes.forEach(function(carte) {
 
-    if (commande.client.modeReception === 'livraison') {
-    message = message + ' - Résidence : ' + commande.client.residence;
-    }
+        const zoneQuantite = carte.querySelector('.zone-quantite');
 
-    message = message + '\n\n';
+        carte.addEventListener('click', function() {
+            zoneQuantite.classList.toggle('visible');
+        });
 
-    let total = 0;
+        zoneQuantite.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
 
-    commande.articles.forEach(function(article) {
-        const sousTotal = article.prix * article.quantite;
-        total = total + sousTotal;
-        message = message + '- ' + article.quantite + 'x ' + article.nom + ' - ' + sousTotal + ' FCFA\n';
+        const btnAjouter = carte.querySelector('.btn-ajouter');
+        btnAjouter.addEventListener('click', function() {
+            const nomPlat = carte.querySelector('h3').textContent;
+            const prixTexte = carte.querySelector('strong').textContent;
+            const prixNombre = parseInt(prixTexte.replace(/\D/g, ''));
+            const quantite = parseInt(carte.querySelector('.input-quantite').value);
+
+            const article = {
+                nom: nomPlat,
+                prix: prixNombre,
+                quantite: quantite
+            };
+
+            panier.push(article);
+            afficherPanier();
+            zoneQuantite.classList.remove('visible');
+        });
+
     });
-
-    message = message + '\nTotal : ' + total + ' FCFA';
-
-    return message;
 }
 
-app.post('/commande', function(req, res) {
-    const nouvelleCommande = new Commande(req.body);
+function afficherPanier() {
+    const titrePanier = document.getElementById('titre-panier');
+    const listePanier = document.getElementById('liste-panier');
+    const totalPanier = document.getElementById('total-panier');
 
-    nouvelleCommande.save()
-        .then(function(commandeEnregistree) {
-            console.log('Commande enregistrée dans la base :', commandeEnregistree);
+    listePanier.innerHTML = '';
 
-            resend.emails.send({
-    from: 'onboarding@resend.dev',
-    to: 'yan.kayo@2031.icam.fr',
-    subject: 'Nouvelle commande - ZeducPlace',
-    text: construireMessageCommande(req.body)
-            })
-            .then(function(resultat) {
-                console.log('Email envoyé :', resultat);
-            })
-            .catch(function(erreurEmail) {
-                console.log('Erreur envoi email :', erreurEmail);
-            });
+    let total = 0;
+    let nombreArticles = 0;
 
-            res.send('Commande bien reçue et enregistrée !');
-        })
-        .catch(function(erreur) {
-            console.log('Erreur lors de l\'enregistrement :', erreur);
-            res.status(500).send('Erreur lors de l\'enregistrement de la commande.');
-        });
-});
+    panier.forEach(function(article) {
+        const ligne = document.createElement('li');
+        ligne.textContent = article.quantite + 'x ' + article.nom + ' - ' + (article.prix * article.quantite) + ' FCFA';
+        listePanier.appendChild(ligne);
 
-const port = process.env.PORT || 3000;
+        total = total + (article.prix * article.quantite);
+        nombreArticles = nombreArticles + article.quantite;
+    });
 
-app.listen(port, function() {
-    console.log('Serveur démarré sur le port ' + port);
+    titrePanier.textContent = 'Votre panier (' + nombreArticles + ')';
+    totalPanier.textContent = 'Total : ' + total + ' FCFA';
+}
+
+const btnValider = document.getElementById('btn-valider');
+
+btnValider.addEventListener('click', function() {
+    if (panier.length === 0) {
+        alert('Votre panier est vide. Ajoutez au moins un plat avant de valider.');
+        return;
+    }
+
+    const nomClient = localStorage.getItem('nomClient');
+    const telephoneClient = localStorage.getItem('telephoneClient');
+    const residenceClient = localStorage.getItem('residenceClient');
+    const modeReception = localStorage.getItem('modeReception');
+
+    const commande = {
+        client: {
+            nom: nomClient,
+            telephone: telephoneClient,
+            residence: residenceClient,
+            modeReception: modeReception
+        },
+        articles: panier
+    };
+
+    fetch('https://zeduc-backend.bonto.run/commande', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(commande)
+    })
+    .then(function(response) {
+        return response.text();
+    })
+    .then(function(data) {
+        alert('Merci ' + nomClient + ' ! Votre commande a bien été reçue. Le restaurant vous contactera bientôt.');
+        panier = [];
+        afficherPanier();
+    })
+    .catch(function(erreur) {
+        alert('Une erreur est survenue, merci de réessayer.');
+    });
 });
