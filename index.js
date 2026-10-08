@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -28,6 +30,27 @@ app.put('/plats/:id', async (req, res) => {
 // Enregistrer une commande
 app.post('/commande', async (req, res) => {
     const commande = await Commande.create(req.body);
+
+    const lignes = commande.articles
+        .map(a => a.quantite + 'x ' + a.nom + ' - ' + (a.prix * a.quantite) + ' FCFA')
+        .join('\n');
+    const total = commande.articles.reduce((s, a) => s + a.prix * a.quantite, 0);
+
+    try {
+        await resend.emails.send({
+            from: 'onboarding@resend.dev',
+            to: 'juniormbongue59@gmail.com',
+            subject: 'Nouvelle commande de ' + commande.client.nom,
+            text: 'Client : ' + commande.client.nom + '\n' +
+                  'Téléphone : ' + commande.client.telephone + '\n' +
+                  'Mode : ' + commande.client.modeReception + '\n' +
+                  'Résidence : ' + (commande.client.residence || '-') + '\n\n' +
+                  lignes + '\n\nTotal : ' + total + ' FCFA'
+        });
+    } catch (e) {
+        console.log('Envoi e-mail échoué :', e.message);
+    }
+
     res.status(201).json(commande);
 });
 
