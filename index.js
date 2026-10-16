@@ -4,6 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const Plat = require('./plat');
 const Commande = require('./commande');
 
@@ -11,15 +12,44 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Connexion admin : renvoie un jeton si le mot de passe est bon
+app.post('/admin/login', (req, res) => {
+    const motDePasse = req.body.motDePasse;
+
+    if (!motDePasse || motDePasse !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ erreur: 'Mot de passe incorrect' });
+    }
+
+    const jeton = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '8h' });
+    res.json({ jeton: jeton });
+});
+
+// Gardien : laisse passer uniquement ceux qui ont un jeton valide
+function verifierAdmin(req, res, next) {
+    const entete = req.headers.authorization || '';
+    const jeton = entete.startsWith('Bearer ') ? entete.slice(7) : null;
+
+    if (!jeton) {
+        return res.status(401).json({ erreur: 'Non autorisé' });
+    }
+
+    try {
+        jwt.verify(jeton, process.env.JWT_SECRET);
+        next();
+    } catch (e) {
+        res.status(401).json({ erreur: 'Jeton invalide ou expiré' });
+    }
+}
+
 // Liste des plats
-app.get('/plats', async (req, res) => {
+app.get('/commandes', verifierAdmin, async (req, res) => {
     const plats = await Plat.find();
     res.json(plats);
 });
 
 // Activer / désactiver UN seul plat (l'id vient de l'URL)
-app.put('/plats/:id', async (req, res) => {
-    const plat = await Plat.findByIdAndUpdate(
+app.put('/plats/:id', verifierAdmin, async (req, res) => {
+        const plat = await Plat.findByIdAndUpdate(
         req.params.id,
         { disponible: req.body.disponible },
         { new: true }
