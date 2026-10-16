@@ -109,9 +109,13 @@ app.post('/commande', async (req, res) => {
         if (!plat) {
             return res.status(400).json({ erreur: 'Plat introuvable ou indisponible' });
         }
+        const supplementDemande = a.supplementQte === undefined ? 0 : a.supplementQte;
+        if (!Number.isInteger(supplementDemande) || supplementDemande < 0 || supplementDemande > 20) {
+            return res.status(400).json({ erreur: 'Quantité de supplément invalide' });
+        }
         const accepteSupplement = plat.nom.toLowerCase().includes('frites');
-        const supplement = (a.supplement === true && accepteSupplement) ? PRIX_SUPPLEMENT : 0;
-        lignesVerifiees.push({ nom: plat.nom, prix: plat.prix, quantite: a.quantite, supplement: supplement });
+        const supplementQte = accepteSupplement ? supplementDemande : 0;
+        lignesVerifiees.push({ nom: plat.nom, prix: plat.prix, quantite: a.quantite, supplementQte: supplementQte });
     }
 
     // 4. Enregistrer
@@ -126,11 +130,14 @@ app.post('/commande', async (req, res) => {
     });
 
     // 5. Email
+    const prixLigne = a => a.prix * a.quantite + PRIX_SUPPLEMENT * a.supplementQte;
+
     const lignes = commande.articles
-        .map(a => a.quantite + 'x ' + a.nom + (a.supplement ? ' (+ supplément frites)' : '') +
-              ' - ' + ((a.prix + a.supplement) * a.quantite) + ' FCFA')
+        .map(a => a.quantite + 'x ' + a.nom +
+              (a.supplementQte > 0 ? ' + ' + a.supplementQte + 'x supplément frites' : '') +
+              ' - ' + prixLigne(a) + ' FCFA')
         .join('\n');
-    const total = commande.articles.reduce((s, a) => s + (a.prix + a.supplement) * a.quantite, 0);
+    const total = commande.articles.reduce((s, a) => s + prixLigne(a), 0);
 
     try {
         await resend.emails.send({

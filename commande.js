@@ -12,7 +12,7 @@ const schemaCommande = new mongoose.Schema({
             nom: String,
             prix: Number,
             quantite: Number,
-            supplement: { type: Number, default: 0 }
+            supplementQte: { type: Number, default: 0 }
         }
     ],
     dateCommande: {
