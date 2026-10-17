@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const Plat = require('./plat');
 const Commande = require('./commande');
 
@@ -12,8 +13,31 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Bonto place un relais devant ton serveur : sans cette ligne, toutes les requêtes
+// sembleraient venir de la même adresse et tes clients se bloqueraient entre eux
+app.set('trust proxy', 1);
+
+// Connexion admin : 5 mauvais essais maximum par 15 minutes et par adresse IP
+const limiteLogin = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { erreur: 'Trop de tentatives. Réessayez dans 15 minutes.' }
+});
+
+// Commandes : 20 par 15 minutes et par adresse IP
+const limiteCommande = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { erreur: 'Trop de commandes envoyées. Réessayez dans quelques minutes.' }
+});
+
 // Connexion admin : renvoie un jeton si le mot de passe est bon
-app.post('/admin/login', (req, res) => {
+app.post('/admin/login', limiteLogin, async (req, res) => {
 
 const { motDePasse } = req.body || {};
 
@@ -80,8 +104,7 @@ function nettoyer(texte, max) {
     return String(texte || '').replace(/[\r\n]+/g, ' ').trim().slice(0, max);
 }
 
-app.post('/commande', async (req, res) => {
-
+app.post('/commande', limiteCommande, async (req, res) => {
     const { client, articles } = req.body || {};
 
     // 1. Contrôler les infos du client
