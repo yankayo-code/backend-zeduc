@@ -38,8 +38,11 @@ const limiteCommande = rateLimit({
 
 // Connexion admin : renvoie un jeton si le mot de passe est bon
 app.post('/admin/login', limiteLogin, async (req, res) => {
+    const { motDePasse } = req.body || {};
 
-const { motDePasse } = req.body || {};
+    console.log('champs reçus :', Object.keys(req.body || {}));
+    console.log('longueur reçue :', motDePasse ? motDePasse.length : 'rien');
+    console.log('longueur attendue :', process.env.ADMIN_PASSWORD ? process.env.ADMIN_PASSWORD.length : 'variable absente');
 
     if (!motDePasse || motDePasse !== process.env.ADMIN_PASSWORD) {
         return res.status(401).json({ erreur: 'Mot de passe incorrect' });
@@ -48,7 +51,6 @@ const { motDePasse } = req.body || {};
     const jeton = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '8h' });
     res.json({ jeton: jeton });
 });
-
 // Gardien : laisse passer uniquement ceux qui ont un jeton valide
 function verifierAdmin(req, res, next) {
     const entete = req.headers.authorization || '';
