@@ -50,10 +50,7 @@ const limiteInscription = rateLimit({
 app.post('/admin/login', limiteLogin, async (req, res) => {
     const { motDePasse } = req.body || {};
 
-    console.log('champs reçus :', Object.keys(req.body || {}));
-    console.log('longueur reçue :', motDePasse ? motDePasse.length : 'rien');
-    console.log('longueur attendue :', process.env.ADMIN_PASSWORD ? process.env.ADMIN_PASSWORD.length : 'variable absente');
-
+    
     if (!motDePasse || motDePasse !== process.env.ADMIN_PASSWORD) {
         return res.status(401).json({ erreur: 'Mot de passe incorrect' });
     }
@@ -61,6 +58,7 @@ app.post('/admin/login', limiteLogin, async (req, res) => {
     const jeton = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '8h' });
     res.json({ jeton: jeton });
 });
+
 // Gardien : laisse passer uniquement ceux qui ont un jeton valide
 function verifierAdmin(req, res, next) {
     const entete = req.headers.authorization || '';
@@ -72,10 +70,10 @@ function verifierAdmin(req, res, next) {
 
     try {
         const donnees = jwt.verify(jeton, process.env.JWT_SECRET);
-    if (donnees.role !== 'admin') {
-    return res.status(403).json({ erreur: 'Accès refusé' });
-    }
-    next();
+        if (donnees.role !== 'admin') {
+            return res.status(403).json({ erreur: 'Accès refusé' });
+        }
+        next();
     } catch (e) {
         res.status(401).json({ erreur: 'Jeton invalide ou expiré' });
     }
