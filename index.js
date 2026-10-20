@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const Plat = require('./plat');
 const Commande = require('./commande');
+const Client = require('./client');
 
 const app = express();
 app.use(cors());
@@ -36,6 +37,15 @@ const limiteCommande = rateLimit({
     message: { erreur: 'Trop de commandes envoyées. Réessayez dans quelques minutes.' }
 });
 
+// Inscription des clients : 20 par 15 minutes et par adresse IP
+const limiteInscription = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { erreur: 'Trop de tentatives. Réessayez plus tard.' }
+});
+
 // Connexion admin : renvoie un jeton si le mot de passe est bon
 app.post('/admin/login', limiteLogin, async (req, res) => {
     const { motDePasse } = req.body || {};
@@ -61,8 +71,11 @@ function verifierAdmin(req, res, next) {
     }
 
     try {
-        jwt.verify(jeton, process.env.JWT_SECRET);
-        next();
+        const donnees = jwt.verify(jeton, process.env.JWT_SECRET);
+    if (donnees.role !== 'admin') {
+    return res.status(403).json({ erreur: 'Accès refusé' });
+    }
+    next();
     } catch (e) {
         res.status(401).json({ erreur: 'Jeton invalide ou expiré' });
     }
@@ -105,6 +118,49 @@ const PRIX_SUPPLEMENT = 500;
 function nettoyer(texte, max) {
     return String(texte || '').replace(/[\r\n]+/g, ' ').trim().slice(0, max);
 }
+
+// Uniformise un numéro : retire espaces, tirets, parenthèses et l'indicatif +237
+function normaliserTelephone(texte) {
+    let t = String(texte || '').replace(/[\s.\-()]/g, '');
+    if (t.startsWith('+237')) {
+        t = t.slice(4);
+    } else if (t.startsWith('00237')) {
+        t = t.slice(5);
+    }
+    return t;
+}
+
+// Inscription d'un client : renvoie un jeton à garder sur le téléphone
+app.post('/clients/inscription', limiteInscription, async (req, res) => {
+    const { nom, telephone } = req.body || {};
+
+    const nomPropre = nettoyer(nom, 60);
+    const telephonePropre = normaliserTelephone(telephone);
+
+    if (nomPropre.length < 2) {
+        return res.status(400).json({ erreur: 'Nom invalide' });
+    }
+    if (!/^\+?\d{8,15}$/.test(telephonePropre)) {
+        return res.status(400).json({ erreur: 'Numéro de téléphone invalide' });
+    }
+
+    const client = await Client.findOneAndUpdate(
+        { telephone: telephonePropre },
+        { nom: nomPropre, derniereVisite: new Date() },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const jeton = jwt.sign(
+        { role: 'client', id: client._id.toString() },
+        process.env.JWT_SECRET,
+        { expiresIn: '180d' }
+    );
+
+    res.status(201).json({
+        jeton: jeton,
+        client: { nom: client.nom, telephone: client.telephone }
+    });
+});
 
 app.post('/commande', limiteCommande, async (req, res) => {
     const { client, articles } = req.body || {};
