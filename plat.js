@@ -7,7 +7,11 @@ const schemaPlat = new mongoose.Schema({
     disponible: {
         type: Boolean,
         default: true
-    }
+    },
+    supplementAutorise: {
+        type: Boolean,
+        default: false
+    },
 });
 
 const Plat = mongoose.model('Plat', schemaPlat);
