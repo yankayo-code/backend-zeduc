@@ -9,6 +9,8 @@ const rateLimit = require('express-rate-limit');
 const Plat = require('./plat');
 const Commande = require('./commande');
 const Client = require('./client');
+const Boisson = require('./boisson');
+const Supplement = require('./supplement');
 
 const app = express();
 app.use(cors());
@@ -103,6 +105,78 @@ app.put('/plats/:id', verifierAdmin, async (req, res) => {
         { new: true }
     );
 
+    if (!plat) {
+        return res.status(404).json({ erreur: 'Plat introuvable' });
+    }
+    res.json(plat);
+});
+
+// Boissons disponibles (publique)
+app.get('/boissons', async (req, res) => {
+    const boissons = await Boisson.find({ disponible: true }).sort({ nom: 1 });
+    res.json(boissons);
+});
+
+// Toutes les boissons, pour l'admin
+app.get('/admin/boissons', verifierAdmin, async (req, res) => {
+    const boissons = await Boisson.find().sort({ nom: 1 });
+    res.json(boissons);
+});
+
+// Activer / désactiver une boisson (admin)
+app.put('/boissons/:id', verifierAdmin, async (req, res) => {
+    const { disponible } = req.body || {};
+    if (typeof disponible !== 'boolean') {
+        return res.status(400).json({ erreur: 'Valeur invalide' });
+    }
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({ erreur: 'Identifiant invalide' });
+    }
+    const boisson = await Boisson.findByIdAndUpdate(req.params.id, { disponible: disponible }, { new: true });
+    if (!boisson) {
+        return res.status(404).json({ erreur: 'Boisson introuvable' });
+    }
+    res.json(boisson);
+});
+
+// Suppléments disponibles (publique)
+app.get('/supplements', async (req, res) => {
+    const supplements = await Supplement.find({ disponible: true }).sort({ nom: 1 });
+    res.json(supplements);
+});
+
+// Tous les suppléments, pour l'admin
+app.get('/admin/supplements', verifierAdmin, async (req, res) => {
+    const supplements = await Supplement.find().sort({ nom: 1 });
+    res.json(supplements);
+});
+
+// Activer / désactiver un supplément (admin)
+app.put('/supplements/:id', verifierAdmin, async (req, res) => {
+    const { disponible } = req.body || {};
+    if (typeof disponible !== 'boolean') {
+        return res.status(400).json({ erreur: 'Valeur invalide' });
+    }
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({ erreur: 'Identifiant invalide' });
+    }
+    const supplement = await Supplement.findByIdAndUpdate(req.params.id, { disponible: disponible }, { new: true });
+    if (!supplement) {
+        return res.status(404).json({ erreur: 'Supplément introuvable' });
+    }
+    res.json(supplement);
+});
+
+// Le restaurant affecte (ou retire) l'option supplément d'un plat (admin)
+app.put('/plats/:id/supplement', verifierAdmin, async (req, res) => {
+    const { supplementAutorise } = req.body || {};
+    if (typeof supplementAutorise !== 'boolean') {
+        return res.status(400).json({ erreur: 'Valeur invalide' });
+    }
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({ erreur: 'Identifiant invalide' });
+    }
+    const plat = await Plat.findByIdAndUpdate(req.params.id, { supplementAutorise: supplementAutorise }, { new: true });
     if (!plat) {
         return res.status(404).json({ erreur: 'Plat introuvable' });
     }
@@ -245,4 +319,6 @@ mongoose.connect(process.env.MONGO_URL).then(function() {
     app.listen(port, function() {
         console.log('Serveur prêt sur le port ' + port);
     });
+}).catch(function(erreur) {
+    console.log('Connexion MongoDB échouée :', erreur.message);
 });
