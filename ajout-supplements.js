@@ -4,7 +4,7 @@ const Supplement = require('./supplement');
 
 mongoose.connect(process.env.MONGO_URL).then(function() {
     const nouveauxSupplements = [
-        { nom: 'Frites', prix: 500 }
+        { nom: 'Portion de riz', prix: 500 }
     ];
 
     Supplement.insertMany(nouveauxSupplements)
